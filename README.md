@@ -28,4 +28,5 @@ Input → Conflict Check → Decision → Database Update → Email Notification
 4. Second = Rejected (Conflict detected)
 
 ## Authors
-Team Name – FORGE 1.0
+Team Name – BugBusters
+Team ID - F1-003
