@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Bookings - CampusFlow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- ==================== NAVBAR ==================== -->
+  <nav>
+    <ul>
+      <li>
+        <a href="index.html" data-page="booking">📅 Book Venue</a>
+      </li>
+      <li>
+        <a href="bookings.html" data-page="view" class="active">📋 View Bookings</a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <div class="container">
+    <!-- ==================== PAGE HEADER ==================== -->
+    <div class="page-header">
+      <h1>All Bookings</h1>
+      <p>View and manage all venue bookings</p>
+    </div>
+
+    <!-- ==================== FILTER SECTION ==================== -->
+    <div class="card" style="margin-bottom: 30px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: end;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="searchInput">🔍 Search by Event Name</label>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search bookings..."
+          >
+        </div>
+        <div>
+          <button class="btn btn-primary" id="refreshBtn" style="width: 100%; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            🔄 Refresh Bookings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== BOOKINGS TABLE ==================== -->
+    <div class="table-container" id="bookingsContainer">
+      <!-- Bookings will be loaded here -->
+    </div>
+
+    <!-- ==================== STATS SECTION ==================== -->
+    <div id="statsSection" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px;">
+      <!-- Stats will be loaded here -->
+    </div>
+  </div>
+
+  <!-- ==================== SCRIPTS ==================== -->
+  <script src="js/script.js"></script>
+  <script>
+    // ==================== PAGE STATE ====================
+    let allBookings = [];
+    let searchTerm = '';
+
+    // ==================== PAGE INITIALIZATION ====================
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('📋 View Bookings Page Loaded');
+      updateActiveNavLink('view');
+
+      // Load bookings on page load
+      await loadBookings();
+
+      // Setup event listeners
+      document.getElementById('searchInput').addEventListener('input', handleSearch);
+      document.getElementById('refreshBtn').addEventListener('click', loadBookings);
+    });
+
+    // ==================== LOAD BOOKINGS ====================
+    async function loadBookings() {
+      console.log('[Bookings] Loading all bookings...');
+
+      Loader.show('bookingsContainer', 'Loading bookings...');
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Make API call
+      const result = await getAllBookings();
+
+      Loader.hide('bookingsContainer');
+
+      if (result.success) {
+        allBookings = result.data || [];
+        console.log('[Bookings] Loaded successfully. Count:', allBookings.length);
+
+        if (allBookings.length === 0) {
+          showEmptyState();
+          showStats(0);
+        } else {
+          renderBookings(allBookings);
+          showStats(allBookings.length);
+          Toast.success('Bookings Loaded', `${allBookings.length} booking(s) found`);
+        }
+      } else {
+        console.error('[Bookings] Failed to load:', result.error);
+        showErrorState(result.error);
+        Toast.error('Error', 'Failed to load bookings. Please check if the server is running.');
+      }
+    }
+
+    // ==================== RENDER BOOKINGS ====================
+    function renderBookings(bookings) {
+      const container = document.getElementById('bookingsContainer');
+
+      if (bookings.length === 0) {
+        showEmptyState();
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Event Name</th>
+              <th>Date</th>
+              <th>Time Slot</th>
+              <th>Status</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      bookings.forEach(booking => {
+        const statusClass = `status-${booking.status.toLowerCase()}`;
+        const formattedDate = formatDate(booking.date);
+        const formattedCreatedAt = formatDateTime(booking.createdAt);
+
+        html += `
+          <tr>
+            <td><strong>${booking.bookingId}</strong></td>
+            <td>${escapeHtml(booking.name)}</td>
+            <td>${formattedDate}</td>
+            <td>${escapeHtml(booking.timeSlot)}</td>
+            <td><span class="status-badge ${statusClass}">${booking.status}</span></td>
+            <td class="muted">${formattedCreatedAt}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+
+      container.innerHTML = html;
+      console.log('[Render] Table rendered with', bookings.length, 'bookings');
+    }
+
+    // ==================== SHOW EMPTY STATE ====================
+    function showEmptyState() {
+      const container = document.getElementById('bookingsContainer');
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <h3>No Bookings Found</h3>
+          <p>There are no venue bookings yet. Create your first booking to get started!</p>
+          <a href="index.html" class="btn btn-primary" style="width: 200px;">Create Booking</a>
+        </div>
+      `;
+    }
+
+    // ==================== SHOW ERROR STATE ====================
+    function showErrorState(error) {
+      const container = document.getElementById('bookingsContainer');
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <h3>Unable to Load Bookings</h3>
+          <p>${escapeHtml(error)}</p>
+          <p class="muted">Make sure the backend server is running on http://localhost:3000</p>
+          <button onclick="loadBookings()" class="btn btn-primary" style="width: 200px;">
+            🔄 Try Again
+          </button>
+        </div>
+      `;
+    }
+
+    // ==================== SEARCH FUNCTIONALITY ====================
+    const handleSearch = debounce(function(event) {
+      searchTerm = trimInput(event.target.value).toLowerCase();
+      console.log('[Search] Searching for:', searchTerm);
+
+      if (!searchTerm) {
+        renderBookings(allBookings);
+        return;
+      }
+
+      const filtered = allBookings.filter(booking =>
+        booking.name.toLowerCase().includes(searchTerm) ||
+        booking.bookingId.toLowerCase().includes(searchTerm)
+      );
+
+      console.log('[Search] Found', filtered.length, 'matching bookings');
+      renderBookings(filtered);
+
+      if (filtered.length === 0) {
+        Toast.info('No Results', `No bookings match "${searchTerm}"`);
+      }
+    }, 300);
+
+    // ==================== SHOW STATISTICS ====================
+    function showStats(totalCount) {
+      const statsSection = document.getElementById('statsSection');
+
+      const approvedCount = allBookings.filter(b => b.status === 'Approved').length;
+      const pendingCount = allBookings.filter(b => b.status === 'Pending').length;
+      const rejectedCount = allBookings.filter(b => b.status === 'Rejected').length;
+
+      statsSection.innerHTML = `
+        <div class="card">
+          <div class="card-title" style="font-size: 2rem; color: var(--primary-color);">
+            ${totalCount}
+          </div>
+          <div class="card-subtitle">Total Bookings</div>
+          <p class="muted">All venue bookings in the system</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="font-size: 2rem; color: var(--success-color);">
+            ${approvedCount}
+          </div>
+          <div class="card-subtitle">Approved</div>
+          <p class="muted">Ready to proceed</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="font-size: 2rem; color: var(--warning-color);">
+            ${pendingCount}
+          </div>
+          <div class="card-subtitle">Pending</div>
+          <p class="muted">Awaiting confirmation</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="font-size: 2rem; color: var(--error-color);">
+            ${rejectedCount}
+          </div>
+          <div class="card-subtitle">Rejected</div>
+          <p class="muted">Not available</p>
+        </div>
+      `;
+    }
+
+    // ==================== UTILITY FUNCTIONS ====================
+
+    /**
+     * Escape HTML special characters
+     */
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // ==================== EXPORT FUNCTIONALITY (Bonus) ====================
+    function exportToCSV() {
+      if (allBookings.length === 0) {
+        Toast.error('Export Failed', 'No bookings to export');
+        return;
+      }
+
+      let csv = 'Booking ID,Event Name,Date,Time Slot,Status,Created At\n';
+
+      allBookings.forEach(booking => {
+        csv += `"${booking.bookingId}","${booking.name}","${booking.date}","${booking.timeSlot}","${booking.status}","${booking.createdAt}"\n`;
+      });
+
+      // Create blob and download
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bookings-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      Toast.success('Export Successful', 'Bookings exported as CSV');
+      console.log('[Export] CSV exported successfully');
+    }
+
+    // Add keyboard shortcut for refresh: Ctrl+R
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        loadBookings();
+      }
+    });
+  </script>
+</body>
+</html>

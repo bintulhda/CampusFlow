@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Venue - CampusFlow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- ==================== NAVBAR ==================== -->
+  <nav>
+    <ul>
+      <li>
+        <a href="index.html" data-page="booking" class="active">📅 Book Venue</a>
+      </li>
+      <li>
+        <a href="bookings.html" data-page="view">📋 View Bookings</a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <div class="container">
+    <!-- ==================== PAGE HEADER ==================== -->
+    <div class="page-header">
+      <h1>Book a Venue</h1>
+      <p>Reserve your ideal venue for your next campus event</p>
+    </div>
+
+    <!-- ==================== BOOKING FORM ==================== -->
+    <div class="form-container">
+      <!-- Success/Error Message -->
+      <div id="formMessage"></div>
+
+      <!-- Form -->
+      <form id="bookingForm">
+        <!-- Name Field -->
+        <div class="form-group">
+          <label for="eventName">📝 Event Name</label>
+          <input
+            type="text"
+            id="eventName"
+            name="name"
+            placeholder="e.g., Tech Hackathon 2026"
+            required
+          >
+        </div>
+
+        <!-- Date Field -->
+        <div class="form-group">
+          <label for="eventDate">📆 Event Date</label>
+          <input
+            type="date"
+            id="eventDate"
+            name="date"
+            required
+          >
+        </div>
+
+        <!-- Time Slot Field -->
+        <div class="form-group">
+          <label for="timeSlot">🕐 Time Slot</label>
+          <input
+            type="text"
+            id="timeSlot"
+            name="timeSlot"
+            placeholder="e.g., 09:00 AM - 05:00 PM"
+            required
+          >
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          ✓ Submit Booking
+        </button>
+      </form>
+
+      <!-- Loading Spinner -->
+      <div class="spinner" id="loadingSpinner"></div>
+    </div>
+
+    <!-- ==================== HELP SECTION ==================== -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 50px;">
+      <div class="card">
+        <div class="card-title">✨ Quick Tips</div>
+        <div class="card-subtitle">Make your booking successful</div>
+        <ul style="color: var(--text-light); line-height: 1.8;">
+          <li>Use clear, descriptive event names</li>
+          <li>Select dates in advance for better availability</li>
+          <li>Provide time slots in 12-hour format</li>
+          <li>Bookings are auto-approved instantly</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⏱️ Time Slot Format</div>
+        <div class="card-subtitle">Examples</div>
+        <ul style="color: var(--text-light); line-height: 1.8; font-family: monospace;">
+          <li>09:00 AM - 05:00 PM</li>
+          <li>10:30 AM - 12:00 PM</li>
+          <li>02:00 PM - 06:00 PM</li>
+          <li>08:00 AM - 10:00 PM</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Booking Status</div>
+        <div class="card-subtitle">What happens next</div>
+        <ul style="color: var(--text-light); line-height: 1.8;">
+          <li>✓ All bookings are instantly approved</li>
+          <li>✓ Receive confirmation with Booking ID</li>
+          <li>✓ View all bookings in the View Bookings page</li>
+          <li>✓ Share your Booking ID with organizers</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCRIPTS ==================== -->
+  <script src="js/script.js"></script>
+  <script>
+    // ==================== PAGE INITIALIZATION ====================
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('📅 Booking Form Page Loaded');
+      updateActiveNavLink('booking');
+
+      // Set minimum date to today
+      const dateInput = document.getElementById('eventDate');
+      const today = new Date().toISOString().split('T')[0];
+      dateInput.min = today;
+
+      // Handle form submission
+      const form = document.getElementById('bookingForm');
+      form.addEventListener('submit', handleBookingSubmit);
+    });
+
+    // ==================== FORM SUBMISSION HANDLER ====================
+    async function handleBookingSubmit(event) {
+      event.preventDefault();
+      console.log('[Form] Booking form submitted');
+
+      clearFormMessage();
+
+      // Get form values
+      const eventName = trimInput(document.getElementById('eventName').value);
+      const eventDate = trimInput(document.getElementById('eventDate').value);
+      const timeSlot = trimInput(document.getElementById('timeSlot').value);
+
+      // Validate form
+      const validation = validateBookingForm(eventName, eventDate, timeSlot);
+      if (!validation.isValid) {
+        console.log('[Form] Validation failed:', validation.errors);
+        showFormMessage(
+          'error',
+          '❌ Validation Error',
+          validation.errors.join(', ')
+        );
+        return;
+      }
+
+      // Show loading state
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Booking...';
+
+      // Make API call
+      const result = await createBooking({
+        name: eventName,
+        date: eventDate,
+        timeSlot: timeSlot
+      });
+
+      // Hide loading state
+      submitBtn.disabled = false;
+      submitBtn.textContent = '✓ Submit Booking';
+
+      if (result.success) {
+        console.log('[Form] Booking successful');
+
+        // Show success message
+        const bookingId = result.data.bookingId;
+        showFormMessage(
+          'success',
+          '✓ Booking Confirmed!',
+          `Your booking has been approved. Booking ID: ${bookingId}`
+        );
+
+        // Show toast notification
+        Toast.success(
+          'Booking Created',
+          `Event: ${eventName} | Booking ID: ${bookingId}`
+        );
+
+        // Reset form
+        document.getElementById('bookingForm').reset();
+
+        // Scroll to message
+        document.getElementById('formMessage').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        console.error('[Form] Booking failed:', result.error);
+
+        // Show error message
+        showFormMessage(
+          'error',
+          '❌ Booking Failed',
+          result.error || 'An error occurred while creating the booking'
+        );
+
+        // Show error toast
+        Toast.error(
+          'Booking Failed',
+          result.error || 'Could not connect to server'
+        );
+      }
+    }
+
+    // ==================== REAL-TIME VALIDATION ====================
+    document.getElementById('eventName').addEventListener('input', function() {
+      if (this.value.trim()) {
+        this.style.borderColor = 'var(--primary-color)';
+      }
+    });
+
+    document.getElementById('eventDate').addEventListener('input', function() {
+      if (this.value) {
+        this.style.borderColor = 'var(--primary-color)';
+      }
+    });
+
+    document.getElementById('timeSlot').addEventListener('input', function() {
+      if (this.value.trim()) {
+        this.style.borderColor = 'var(--primary-color)';
+      }
+    });
+  </script>
+</body>
+</html>
